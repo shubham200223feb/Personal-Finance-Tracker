@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expense Tracker</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background-color: #f3f4f6;
+      color: #333;
+    }
+    h2, h3 { text-align: center; color: #1f2937; }
+    form { margin: 1rem auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; max-width: 800px; }
+    input, select, button {
+      padding: 0.6rem 1rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
+    }
+    button {
+      background-color: #3b82f6; color: white; border: none; cursor: pointer; transition: background 0.3s ease;
+    }
+    button:hover { background-color: #2563eb; }
+    .button-group { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+    ul {
+      list-style-type: none; padding: 0; max-width: 800px; margin: 1rem auto; background-color: #ffffff;
+      border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    li { padding: 1rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+    li:last-child { border-bottom: none; }
+    .leaderboard-title { text-align: center; font-size: 1.5rem; color: #10b981; margin-top: 2rem; }
+    .premium-badge { text-align: center; font-size: 1.2rem; color: #f59e0b; font-weight: bold; }
+    .pagination { display: flex; justify-content: center; margin-top: 2rem; flex-wrap: wrap; gap: 0.5rem; }
+    a button {
+      all: unset; padding: 0.5rem 1rem; border: 1px solid #60a5fa; border-radius: 6px;
+      background-color: #e0f2fe; color: #2563eb; cursor: pointer;
+    }
+    a button:hover { background-color: #bfdbfe; }
+    .logout { display: block; text-align: center; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h2>Your Expenses</h2>
+  <h2><a href="/chartview">click for chartview</a></h2>
+
+  <!-- Premium Section -->
+  <div id="premiumSection"></div>
+
+  <!-- Expenses per page -->
+  <form id="limitForm">
+    <label for="limit">Expenses per page: </label>
+    <input type="number" name="limit" id="limit"  required>
+    <button type="submit">Apply</button>
+  </form>
+
+  <!-- Add Expense -->
+  <form id="addForm" action="/add" method="post">
+    <input name="item" placeholder="Item" required />
+    <input name="amount" placeholder="Amount" required />
+    <select name="category">
+      <option value="transpotation">transportion</option>
+      <option value="entertainment">etertainmenet </option>
+      <option value="persanalcare"> persanalcare</option>
+      <option value="others">others</option>
+    </select>
+    <input name="description" placeholder="Description" />
+    <button type="submit">Add</button>
+  </form>
+
+  <div class="logout">
+    <a href="/login"><button id="logout">Logout</button></a>
+  </div>
+
+  <h2>All Users Expenses Summary</h2>
+  <ul id="expenseList"></ul>
+
+  <div id="pagination" class="pagination"></div>
+
+  <!-- Leaderboard -->
+  <div id="leaderboardSection"></div>
+
+  <script>
+    let currentPage = 1;
+    let limit = localStorage.getItem('limit') || 3;
+    let isPremium = false;
+
+    // ✅ Load Expenses
+    async function loadExpenses(page = 1) {
+      const res = await fetch(`/expencess?page=${page}&limit=${limit}`);
+      const data = await res.json();
+
+      isPremium = data.isPremium;
+      const list = document.getElementById("expenseList");
+      list.innerHTML = "";
+
+      data.expenses.forEach(exp => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <div>
+            <strong>${exp.item}</strong> - ₹${exp.amount} (${exp.category})<br>
+            <small></small>
+          </div>
+          <form method="post" action="/delete">
+            <input type="hidden" name="userid" value="${exp.UserId}">
+            <input type="hidden" name="amount" value="${exp.amount}">
+            <input type="hidden" name="expencesid" value="${exp.id}">
+            <button type="submit">Delete</button>
+          </form>
+        `;
+        list.appendChild(li);
+      });
+
+      // Premium UI
+      renderPremiumUI(data);
+
+      // Pagination
+      renderPagination(data.totalPages, data.currentPage);
+
+     
+    }
+
+    // ✅ Premium Section Render
+    function renderPremiumUI(data) {
+      const section = document.getElementById("premiumSection");
+      if (!data.isPremium) {
+        localStorage.setItem("bhailederbordopehai","false");
+        section.innerHTML = `<div class="button-group"><button id="buyPremium">Buy Premium</button></div>`;
+        document.getElementById("buyPremium")?.addEventListener("click", () => startRazorpay(data.key_id));
+      } else {
+        section.innerHTML = `<h3 class="premium-badge">🌟 Premium Member 🌟</h3>
+       
+            <button id="amount">Leaderboard</button>
+            <a href="/download"><button> Download </button></a>`
+             document.getElementById("amount")?.addEventListener("click", leaderbordview)
+
+async function leaderbordview (e) {
+  e.preventDefault();
+  localStorage.setItem("bhailederbordopehai","true");
+  try {
+    const res = await fetch("/feachdata");
+    const result = await res.json();
+    const data = result; // array ensure karna
+
+    console.log("LEADERBOARD DATA:", data);
+
+    const section = document.getElementById("leaderboardSection");
+    section.innerHTML = `<h2 class="leaderboard-title">Leaderboard</h2>
+      <ul>
+        ${data.map(u => `
+          <li><strong>${u.name}</strong> (${u.email}) — Total Expenses: ₹${u.totalamount}</li>
+        `).join("")}
+      </ul>`;
+  } catch (err) {
+    console.error("LEADERBOARD ERROR:", err);
+    alert("Failed to load leaderboard");
+  }
+};
+
+
+
+      }
+    }
+
+    // ✅ Razorpay Payment
+    async function startRazorpay(key) {
+      try {
+        const response = await fetch("/create/order", { method: "POST", headers: { "Content-Type": "application/json" }});
+        const data = await response.json();
+        const options = {
+          key: data.key_id,
+          order_id: data.order.id,
+          handler: async function (response) {
+            const res = await fetch("/update/order-status", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ order_id: data.order.id, payment_id: response.razorpay_payment_id }),
+            });
+            const result = await res.json();
+            if (result.success) {
+              alert("🎉 You are now a Premium Member!");
+              location.reload();
+            }
+          }
+        };
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        console.error(err);
+        alert("Something went wrong with Razorpay");
+      }
+    }
+
+    // ✅ Pagination Render
+    function renderPagination(totalPages, currentPage) {
+      const container = document.getElementById("pagination");
+      container.innerHTML = "";
+      for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement("button");
+        btn.textContent = i;
+        if (i === currentPage) btn.style.backgroundColor = "#93c5fd";
+        btn.addEventListener("click", () => { loadExpenses(i); });
+        container.appendChild(btn);
+      }
+    }
+
+
+    // ✅ Form Handlers
+    document.getElementById("limitForm").addEventListener("submit", e => {
+      e.preventDefault();
+      limit = document.getElementById("limit").value;
+      localStorage.setItem("limit", limit);
+      loadExpenses(1);
+    });
+
+    
+    // ✅ Initial Load
+    loadExpenses();
+  </script>
+</body>
+</html>

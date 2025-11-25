@@ -1,0 +1,2 @@
+Item,Amount,Category,Description
+oil,500,fuele,
